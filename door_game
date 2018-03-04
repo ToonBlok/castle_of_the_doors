@@ -1,0 +1,245 @@
+<!DOCTYPE HTML>
+<html>
+	<head>
+		<title>Castle of the doors</title>
+		<style>
+			body {
+				margin: 0px;
+				padding: 0px;
+			}
+
+			.centeredAttribute {
+				font-family: Times new roman;
+				border:1px solid #d3d3d3; 
+				padding-left: 0;
+			   	padding-right: 0;
+			   	margin-left: auto;
+			   	margin-right: auto; 
+				display: block;
+			   	width: 800px;
+			}
+
+			#restartButton {
+				margin-top: 20px;
+				height: 50px;
+			}
+
+			input {
+				height: 60px;
+				font-family: Calibri;
+				font-size: 30px;
+			}
+			img {
+				border:9px solid #d3d3d3; 
+				padding-left: 0;
+			   	padding-right: 0;
+			   	margin-left: auto;
+			   	margin-right: auto; 
+				display: block;
+			   	width: 80px;
+				height: 140px;
+
+			}
+			h2 { 
+				margin-top: 0px;
+				margin-bottom: 0px;
+			}
+			p {
+				margin-top: 0px;
+				margin-bottom: 0px;
+			}
+
+		</style>
+	</head>
+	<body>
+		<div class="centeredAttribute">
+			<h1>Castle of the doors</h1>
+		</div>
+
+		<canvas id="myCanvas" class="centeredAttribute" width="700" height="197"></canvas>
+
+		<div class="centeredAttribute">
+			<input id="restartButton" class="centeredAttribute" value="Restart" type="button" />
+			<h2>Instructions</h2>
+			<p>Each door contains a monster.<br>Try to find the door containing the monster portrayed in the portrait below.<br></p>
+			<h2>Controls</h2>
+			<p>Open door: Left mouse button.<br>Restart: Click the restart button.</p>
+			<img id="imageMonsterToFind" > </img>
+			<p id="messageRoundOver"><br></p>
+			<!--<p id="debug"></p> -->
+		</div>
+
+		<!-- ## Deselect if you want to debug ## -->
+		<!-- <p id="debug" class="centeredAttribute">...</p>  -->
+
+		<script>
+			const CANVAS = document.getElementById('myCanvas');
+			const CONTEXT = CANVAS.getContext('2d');
+			const IMAGE_DOOR_CLOSED = new Image(100, 200);
+			IMAGE_DOOR_CLOSED.src = "resources/door.png";
+			const IMAGE_DOOR_OPEN = new Image(100, 200);
+			IMAGE_DOOR_OPEN.src = "resources/door_open.png";
+			const MAX_DOORS = 7;
+			var HIDING_MONSTERS = new Array(MAX_DOORS);
+			var IMAGE_MONSTER = new Image(80, 140);
+			IMAGE_MONSTER.position = { x: 0, y: 0 };
+			var POSITION_CANVAS;
+			var AUDIO_OPEN_DOOR = new Audio('resources/wooden-chest-open.mp3');
+			var AUDIO_CLOSE_DOOR = new Audio('resources/wooden-chest-close.mp3');
+			var ROUND_IS_OVER = 0;
+			var IMAGES_MONSTER = [ 
+				"resources/Cotw-giant_bat.PNG",
+				"resources/Cotw-giant_rat.PNG",
+				"resources/Cotw-goblin.PNG",
+				"resources/Cotw-kobold.PNG",
+				"resources/Cotw-large_snake.PNG",
+				"resources/Cotw-skeleton.PNG",
+				"resources/Cotw-viper.PNG",
+				"resources/Cotw-walking_corpse.PNG",
+				"resources/Cotw-wild_dog.PNG",
+				"resources/Cotw-wolf.PNG"
+			];
+
+			CANVAS.addEventListener("click", openDoor, true);
+			document.getElementById("restartButton").onclick = restartGame;
+
+			window.onload = function() {
+				init();
+			}
+
+			IMAGE_DOOR_CLOSED.onload = function() {
+				drawDoors();
+			};
+
+			IMAGE_MONSTER.onload = function(){ // .src triggers onload
+				CONTEXT.drawImage(this, this.position.x, this.position.y, this.width, this.height);
+			}
+
+			function init() {
+				POSITION_CANVAS = getCanvasPosition(document.querySelector("#myCanvas"));
+				selectMonstersBehindDoors();
+				selectPreviewMonster();
+			}
+
+			// Select a random monster and show it to the player who must find it.
+			function selectPreviewMonster(){
+				document.getElementById("imageMonsterToFind").src=HIDING_MONSTERS[Math.floor(Math.random() * HIDING_MONSTERS.length)];
+			}
+
+			// Select a couple of random monsters to hide behind all the doors.
+			function selectMonstersBehindDoors() {
+
+				for (let i = 0; i < HIDING_MONSTERS.length; i++) {
+					let pic;
+
+					while ((contains(HIDING_MONSTERS, pic)) || (pic == undefined)) {
+						pic = IMAGES_MONSTER[Math.floor(Math.random() * IMAGES_MONSTER.length)];
+					}
+					HIDING_MONSTERS[i] = pic;
+				}
+
+				/* remove comment if you want to see which monsters there are 
+				var debugString;
+				debugString += "<br>";
+				for (let i = 0; i < HIDING_MONSTERS.length; i++) {
+					//debugString += " " + i + " <br>";
+					debugString += i + " " + HIDING_MONSTERS[i] + "<br>";
+				}
+				document.getElementById("debug").innerHTML = debugString;
+				*/
+
+			}
+
+			function contains(arr, monster) {
+				let i = arr.length;
+				while (i--) { // zero = false and above zero is true
+					if (arr[i] === monster)
+						return true;
+				}
+				return false;
+			}
+
+
+			function openDoor(e) {
+				if (!Boolean(ROUND_IS_OVER)) {
+					AUDIO_OPEN_DOOR.play();
+					var pointerCoordinates = Math.floor((e.clientX - POSITION_CANVAS.x) / 115);
+					drawOpenDoor(pointerCoordinates);
+					// Not sure where to place this
+					IMAGE_MONSTER.position.x = ((pointerCoordinates * 100) + 10);
+					IMAGE_MONSTER.position.y = (CANVAS.height - 160);
+					IMAGE_MONSTER.src = HIDING_MONSTERS[pointerCoordinates]; 
+					endGame();
+				}
+			}
+
+			function endGame() {
+
+				if(IMAGE_MONSTER.src == imageMonsterToFind.src) {
+					document.getElementById("imageMonsterToFind").style.border = "9px solid green";
+					document.getElementById("messageRoundOver").innerHTML = "You won!";
+				} else {
+					document.getElementById("imageMonsterToFind").style.border = "9px solid red";
+					document.getElementById("messageRoundOver").innerHTML = "You lost!";
+				}
+
+				ROUND_IS_OVER = 1;
+				//restartGame();
+			}
+
+			function restartGame() {
+				AUDIO_CLOSE_DOOR.play();
+				ROUND_IS_OVER = 0;
+				selectMonstersBehindDoors();
+				selectPreviewMonster();
+				drawDoors();
+				document.getElementById("messageRoundOver").innerHTML = "<br>";
+				document.getElementById("imageMonsterToFind").style.border = "9px solid #d3d3d3";
+
+			}
+
+
+			function getCanvasPosition(el) {
+				var xPosition = 0;
+				var yPosition = 0;
+
+				// Loop ends when there are no more parents.
+				while (el) {
+					if (el.tagName == "BODY") {
+						// deal with browser quirks with body/window/document and page scroll
+						let xScrollPos = el.scrollLeft || document.documentElement.scrollLeft;
+						let yScrollPos = el.scrollTop || document.documentElement.scrollTop;
+
+						xPosition += (el.offsetLeft - xScrollPos + el.clientLeft);
+						yPosition += (el.offsetTop - yScrollPos + el.clientTop);
+					} else {
+						xPosition += (el.offsetLeft - el.scrollLeft + el.clientLeft);
+						yPosition += (el.offsetTop - el.scrollTop + el.clientTop);
+					}
+					el = el.offsetParent;
+
+				}
+
+				return {
+					x: xPosition,
+					y: yPosition
+				};
+			}
+
+			function drawOpenDoor(pointerCoordinates) {
+				let x = pointerCoordinates * 100;
+				let y = CANVAS.height - IMAGE_DOOR_OPEN.height;
+				CONTEXT.drawImage(IMAGE_DOOR_OPEN, x, y, IMAGE_DOOR_OPEN.width, IMAGE_DOOR_OPEN.height);
+			}
+
+			function drawDoors() {
+				let drawPositionX = 0;
+
+				for (let i = 0; i < MAX_DOORS; i++) {
+					CONTEXT.drawImage(IMAGE_DOOR_CLOSED, drawPositionX, (CANVAS.height - IMAGE_DOOR_CLOSED.height), IMAGE_DOOR_CLOSED.width, IMAGE_DOOR_CLOSED.height);
+					drawPositionX += 100;
+				}
+			}
+		</script>
+	</body> 
+</html>
